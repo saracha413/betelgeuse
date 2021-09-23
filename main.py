@@ -15,8 +15,9 @@ if __name__ == '__main__':
 
 
     #What do you want to plot?
+    plt_binned_djs = True
     plt_spectra = False
-    plt_djs_dens = True
+    plt_djs_dens = False
 
 
 
@@ -30,11 +31,20 @@ if __name__ == '__main__':
     mars_wave, mars_flux = np.loadtxt('CatalogofSolarSystemObjects/Spectra/NativeResolution/Sun/Mars_McCord1971_Spec_Sun_HiRes.txt', unpack=True)
     jupiter_wave, jupiter_flux = np.loadtxt('CatalogofSolarSystemObjects/Spectra/NativeResolution/Sun/Jupiter_Lundock080507_Spec_Sun_HiRes.txt', unpack=True)
 
+
+    #clean spectra
+    earth_wave, earth_flux = clean(earth_wave, earth_flux)
+    mars_wave, mars_flux = clean(mars_wave, mars_flux)
+    jupiter_wave, jupiter_flux = clean(jupiter_wave, jupiter_flux)
+
     if normalize:
         avg_flux = np.mean(earth_flux)
         mars_flux = mars_flux * avg_flux/np.mean(mars_flux)
         jupiter_flux = jupiter_flux *avg_flux/np.mean(jupiter_flux)
 
+
+
+    bins = {'H2O':[0.5, 0.7], 'CO2': [1.4, 1.6], 'O3': [0.9, 1.0], 'CH4':[0.7, 0.8], 'O2':[0.6, 0.70]}
     binned_Djs_mars, binned_Djs_jupiter = get_binned_Djs(earth_wave, earth_flux, mars_wave, mars_flux, jupiter_wave, jupiter_flux)
 
     #most common isotopes of CO and H20 from HITRAN
@@ -73,6 +83,50 @@ if __name__ == '__main__':
     #-------------------------------------------------------------
 
 
+    #plot binned_djs
+    if plt_binned_djs:
+
+        interp_bins_earth, interp_bins_mars, interp_bins_jupiter = get_binned_interp(earth_wave, earth_flux, mars_wave, mars_flux, jupiter_wave, jupiter_flux)
+        iso_colors = {'H2O':'red', 'CO2': 'green', 'O3': 'blue', 'CH4':'purple', 'O2':'gray'}
+        fig, axs = plt.subplots(nrows=3, figsize=(5,10), sharex=True)
+
+
+        axs[0].scatter(earth_wave, earth_flux, label='Earth', s=5)
+        for key in interp_bins_earth:
+            beg, end = bins[key]
+            wave_new = np.linspace(beg, end, num=50)
+            axs[0].plot(wave_new, interp_bins_earth[key](wave_new), linestyle='dashed', color='black')
+            axs[0].axvspan(beg, end, alpha=0.5, label=key, color=iso_colors[key])
+
+
+
+        axs[1].scatter(mars_wave, mars_flux, label='Mars', s=5)
+        for key in interp_bins_mars:
+            beg, end = bins[key]
+            wave_new = np.linspace(beg, end, num=50)
+            axs[1].plot(wave_new, interp_bins_mars[key](wave_new), linestyle='dashed', color='black')
+            axs[1].axvspan(beg, end, alpha=0.5, label=key, color=iso_colors[key])
+
+
+        axs[2].scatter(jupiter_wave, jupiter_flux, label='Jupiter', s=5)
+        for key in interp_bins_jupiter:
+            beg, end = bins[key]
+            wave_new = np.linspace(beg, end, num=50)
+            axs[2].plot(wave_new, interp_bins_jupiter[key](wave_new), linestyle='dashed', color='black')
+            axs[2].axvspan(beg, end, alpha=0.5, label=key, color=iso_colors[key])
+
+        for ax in axs:
+            ax.set_ylim([-1e-11, 6e-11])
+            #ax.set_ylim([-34, -22])
+            ax.set_xscale('log')
+            ax.legend()
+            ax.set_ylabel('Flux (W/(m^2*Angstroms)')
+
+
+        #plt.xlabel('Wavelength (um)')
+        plt.ylabel('Flux (W/(m^2*Angstroms)')
+        plt.tight_layout()
+        plt.show()
 
 
     #------------- plot spectra --------------
@@ -105,10 +159,7 @@ if __name__ == '__main__':
         fig, axs = plt.subplots(nrows=3, figsize=(10,10), sharex=True)
 
 
-        #clean spectra
-        earth_wave, earth_flux = clean(earth_wave, earth_flux)
-        mars_wave, mars_flux = clean(mars_wave, mars_flux)
-        jupiter_wave, jupiter_flux = clean(jupiter_wave, jupiter_flux)
+
 
         #interpolate full spectra
         int_earth = interp1d(earth_wave, earth_flux, kind='nearest')
