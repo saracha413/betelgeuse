@@ -6,6 +6,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 
+
 #calculate JSD for two spectra
 def djs(spec1, spec2):
 
@@ -55,15 +56,32 @@ def clean(wave, flux):
     return new_wave, new_flux
 
 
+#get a
+def find_nearest(arr, value):
+
+    idx =  (np.abs(arr-value)).argmin()
+
+    return arr[idx]
 
 
 #adapted from https://www.codegrepper.com/code-examples/python/python+find+nearest+point+in+array
 #get Djs density to match a wavelength value
-def find_nearest_Djs(wav_arr, djs_arr, wav_value):
+def find_nearest_Djs(wave_arr, djs_arr, wave_value):
 
-    idx = (np.abs(wav_arr-wav_value)).argmin()
+    idx = (np.abs(wave_arr-wave_value)).argmin()
 
-    return wav_arr[idx], djs_arr[idx]
+    return wave_arr[idx], djs_arr[idx]
+
+
+#truncates wavelength and flux arrays from the beginning and ending wavelengths in a wavelength packet
+def truncate(beg_wave, end_wave, wave_arr, flux_arr):
+
+    beg_idx, end_idx = (np.abs(wave_arr-beg_wave)).argmin(), (np.abs(wave_arr-end_wave)).argmin()
+    wave_arr, flux_arr = wave_arr[beg_idx:end_idx], flux_arr[beg_idx:end_idx]
+
+    return wave_arr, flux_arr
+
+
     
 #-------------------------------------------------------------
 #
@@ -71,222 +89,62 @@ def find_nearest_Djs(wav_arr, djs_arr, wav_value):
 #
 #-------------------------------------------------------------
 #W/m^2*Ansgstrom, microns
-earth_wave, earth_flux = np.loadtxt('CatalogofSolarSystemObjects/Spectra/NativeResolution/Sun/Earth_Lundock081121_Spec_Sun_HiRes.txt', unpack=True)
-mars_wave, mars_flux = np.loadtxt('CatalogofSolarSystemObjects/Spectra/NativeResolution/Sun/Mars_McCord1971_Spec_Sun_HiRes.txt', unpack=True)
-jupiter_wave, jupiter_flux = np.loadtxt('CatalogofSolarSystemObjects/Spectra/NativeResolution/Sun/Jupiter_Lundock080507_Spec_Sun_HiRes.txt', unpack=True)
+#earth_wave, earth_flux = np.loadtxt('CatalogofSolarSystemObjects/Spectra/NativeResolution/Sun/Earth_Lundock081121_Spec_Sun_HiRes.txt', unpack=True)
+#mars_wave, mars_flux = np.loadtxt('CatalogofSolarSystemObjects/Spectra/NativeResolution/Sun/Mars_McCord1971_Spec_Sun_HiRes.txt', unpack=True)
+#jupiter_wave, jupiter_flux = np.loadtxt('CatalogofSolarSystemObjects/Spectra/NativeResolution/Sun/Jupiter_Lundock080507_Spec_Sun_HiRes.txt', unpack=True)
 
-print('Mars has ', len(mars_wave), ' points while Jupiter has ', len(jupiter_wave),'.' )
 
 #earth_wave, earth_flux = np.loadtxt('CatalogofSolarSystemObjects/Spectra/R8resolution/Sun/Earth_Lundock081121_Spec_Sun_LoRes.txt', unpack=True)
 #mars_wave, mars_flux = np.loadtxt('CatalogofSolarSystemObjects/Spectra/R8resolution/Sun/Mars_McCord1971_Spec_Sun_LoRes.txt', unpack=True)
 #jupiter_wave, jupiter_flux = np.loadtxt('CatalogofSolarSystemObjects/Spectra/R8resolution/Sun/Jupiter_Lundock080507_Spec_Sun_LoRes.txt', unpack=True)
+def get_binned_Djs(earth_wave, earth_flux, mars_wave, mars_flux, jupiter_wave, jupiter_flux):
+
+    #clean spectra
+    earth_wave, earth_flux = clean(earth_wave, earth_flux)
+    mars_wave, mars_flux = clean(mars_wave, mars_flux)
+    jupiter_wave, jupiter_flux = clean(jupiter_wave, jupiter_flux)
 
 
-#clean spectra
-earth_wave, earth_flux = clean(earth_wave, earth_flux)
-mars_wave, mars_flux = clean(mars_wave, mars_flux)
-jupiter_wave, jupiter_flux = clean(jupiter_wave, jupiter_flux)
+    #bins = {'H2O':[0.52, 0.72], 'CO2': [1.42, 1.58], 'O3': [0.94, 0.99], 'CH4':[0.73, 0.81], 'O2':[0.59, 0.70]}
+    bins = {'H2O':[0.5, 0.7], 'CO2': [1.4, 1.6], 'O3': [0.9, 1.0], 'CH4':[0.7, 0.8], 'O2':[0.6, 0.70]}
 
-#interpolate spectra (this returns an interpolation function that's a function of wavelength)
-int_earth = interp1d(earth_wave, earth_flux, kind='nearest')
-int_mars = interp1d(mars_wave, mars_flux, kind='nearest')
-int_jupiter = interp1d(jupiter_wave, jupiter_flux, kind='nearest')
+    binned_Djs_mars = {'H2O': np.nan, 'CO2': np.nan, 'O3': np.nan, 'CH4':np.nan, 'O2':np.nan}
+    binned_Djs_jupiter = {'H2O': np.nan, 'CO2': np.nan, 'O3': np.nan, 'CH4':np.nan, 'O2':np.nan}
 
-
-#where to truncate wavelength so all spectra have same number of bins
-start = max(min(earth_wave), min(mars_wave), min(jupiter_wave))
-stop = min(max(earth_wave), max(mars_wave), max(jupiter_wave))
-
-#new, uniform array of wavelengths to use for all spectra
-wave_new = np.linspace(start, stop, num=1000)
+    for key in bins:
+        #truncate spectra
+        beg, end = bins[key]
+        earth_wave_trunc, earth_flux_trunc = truncate(beg, end, earth_wave, earth_flux)
+        mars_wave_trunc, mars_flux_trunc = truncate(beg, end, mars_wave, mars_flux)
+        jupiter_wave_trunc, jupiter_flux_trunc = truncate(beg, end, jupiter_wave, jupiter_flux)
 
 
+        #interpolate spectra (this returns an interpolation function that's a function of wavelength)
+        int_earth = interp1d(earth_wave_trunc, earth_flux_trunc, kind='nearest', fill_value="extrapolate")
+        int_mars = interp1d(mars_wave_trunc, mars_flux_trunc, kind='nearest', fill_value="extrapolate")
+        int_jupiter = interp1d(jupiter_wave_trunc, jupiter_flux_trunc, kind='nearest', fill_value="extrapolate")
 
-#most common isotopes of CO and H20 from HITRAN
-nu_spec, S_spec, ID_spec, _, _, _, _ , _ = np.loadtxt('6140cfc7.out.txt', unpack = True)
-
-nu_CO, S_CO = [], []
-nu_H2O, S_H2O = [], []
-
-for i in range(len(nu_spec)):
-    if ID_spec[i] == 1: 
-        nu_CO.append(nu_spec[i]/1e3)
-        S_CO.append(S_spec[i])
-    elif ID_spec[i] == 5:
-        nu_H2O.append(nu_spec[i]/1e3)
-        S_H2O.append(S_spec[i])
-    else:
-        print(ID_spec[i])
+        #new, uniform array of wavelengths to use for all spectra
+        wave_new = np.linspace(beg, end, num=1000)
 
 
-#-------------------------------------------------------------
-#
-#                PLOT RESULTS
-#
-#-------------------------------------------------------------
-
-#What do you want to plot?
-plt_spectra = False
-plt_djs_dens = True
-
-
-#------------- plot spectra --------------
-if plt_spectra:
-    fig, axs = plt.subplots(nrows=3, figsize=(5,10))
-
-    axs[0].plot(earth_wave, earth_flux, label='Earth')
-    axs[0].plot(wave_new, int_earth(wave_new), label='interp Earth', linestyle='--')
-    axs[1].plot(mars_wave, mars_flux, label='Mars')
-    axs[1].plot(wave_new, int_mars(wave_new), label='interp Mars', linestyle='--')
-    axs[2].plot(jupiter_wave, jupiter_flux, label='Jupiter')
-    axs[2].plot(wave_new, int_jupiter(wave_new), label='interp Jupiter', linestyle='--')
-
-    for ax in axs:
-        ax.set_yscale('log')
-        ax.set_xlim([0.5,2.5])
-        ax.set_ylim([0, 1e-10])
-        #ax.set_ylim([-34, -22])
-        ax.set_xlabel('Wavelength (um)')
-        ax.set_ylabel('Flux (W/(m^2*Angstroms)')
-        ax.legend()
-
-    plt.tight_layout()
-    plt.savefig('cleaned_n=1000', format='png')
-    plt.show()
+        binned_Djs_mars[key] = djs(int_earth(wave_new),int_mars(wave_new))
+        binned_Djs_jupiter[key] = djs(int_earth(wave_new),int_jupiter(wave_new))
     
-    
-#------------- plot djs density --------------
-if plt_djs_dens:
-    fig, axs = plt.subplots(nrows=3, figsize=(10,10), sharex=True)
-    
-    djs_dens_jup = djs_density(int_earth(wave_new), int_jupiter(wave_new))
-    djs_dens_mars = djs_density(int_earth(wave_new), int_mars(wave_new))
+    return binned_Djs_mars, binned_Djs_jupiter
+
+
+##where to truncate wavelength so all spectra have same number of bins
+#start = max(min(earth_wave), min(mars_wave), min(jupiter_wave))
+#stop = min(max(earth_wave), max(mars_wave), max(jupiter_wave))
 
 
 
-    
-    
-    #angular wavenumnber
-    k = 2*np.pi/wave_new
-    #linear wavenumber
-    nu = 1/wave_new
-    
-    matplotlib.rcParams['text.usetex'] = True
-
-    
-    #axs[0].vlines(x=[0.6], ymin=1.7e-12, ymax=1.8e-12, label='H2O', color='green') #H2O
-    axs[0].axvline(x=0.6, ymin=0, ymax=1, label=r'H$_2$O', color='red', linestyle='dashed') #H2O
-    #axs[0].text(0.6, 1.4e-12, 'H2O' )
-    #axs[0].vlines(x=[0.42, 1.47], ymin=1.8e-12, ymax=2e-12, label='CO2', color='red') #CO2
-    #axs[0].axvline(x=0.42, ymin=0, ymax=1, label=r'CO$_2$', color='green', linestyle='dashed')
-    axs[0].axvline(x=1.47, ymin=0, ymax=1, label=r'CO$_2$', color='green', linestyle='dashed')
-    #axs[0].text(0.52, 5e-13, 'CO2' )
-    #axs[0].text(1.47, 2.8e-13, 'CO2' )
-    #axs[0].vlines(x=[0.96], ymin=1.7e-12, ymax=1.8e-12, label='O3', color='blue') #O3
-    axs[0].axvline(x=0.96, ymin=0, ymax=1, label=r'O$_3$', color='blue', linestyle='dashed')
-    #axs[0].text(0.96, 2.72e-13, 'O3')
-    #axs[0].vlines(x=[0.75], ymin=1.7e-12, ymax=1.8e-12, label='CH4', color='purple') #CH4
-    axs[0].axvline(x=0.75, ymin=0, ymax=1, label=r'CH$_4$', color='purple', linestyle='dashed')
-    #axs[0].text(0.75, 1.25e-13, 'CH4')
-    #axs[0].vlines(x=[0.64], ymin=1.7e-12, ymax=1.8e-12, label='O2', color='black') #O2
-    axs[0].axvline(x=0.64, ymin=0, ymax=1, label=r'O$_2$', color='black', linestyle='dashed')
-    #axs[0].text(0.64, 1.49e-12, 'O2')
-
-    axs[0].plot(wave_new, int_mars(wave_new), color='black')
-
-    axs[0].scatter(mars_wave, mars_flux, s=5)  
-    axs[0].set_ylim([0, 0.4e-11])
-    axs[0].set_ylabel(r'Flux (W/(m$^2 \AA$)')
-    axs[0].legend()
-    axs[0].set_title('Mars spectrum')
-
-    
-    #axs[1].vlines(x=[0.6], ymin=3.7e-11, ymax=4e-11, label='H2O', color='green') #H2O
-    axs[1].axvline(x=0.6, ymin=0, ymax=1, label=r'H$_2$O', color='red', linestyle='dashed')
-    #axs[1].text(0.6, 3.23e-11, 'H2O' )
-    #axs[1].vlines(x=[0.42, 1.47], ymin=3.7e-11, ymax=4e-11, label='CO2', color='red') #CO2
-    #axs[1].axvline(x=0.42, ymin=0, ymax=1, label=r'CO$_2$', color='green', linestyle='dashed')
-    axs[1].axvline(x=1.47, ymin=0, ymax=1, label=r'CO$_2$', color='green', linestyle='dashed')
-    #axs[1].text(0.42, 2e-11, 'CO2' )
-    #axs[1].text(1.47, 2.9e-12, 'CO2' )
-    #axs[1].vlines(x=[0.96], ymin=1.7e-12, ymax=4e-11, label='O3', color='blue') #O3
-    axs[1].axvline(x=0.96, ymin=0, ymax=1, label=r'O$_3$', color='blue', linestyle='dashed')
-    #axs[1].text(0.96, 1.93e-11, 'O3')
-    #axs[1].vlines(x=[0.75], ymin=3.7e-11, ymax=4e-11, label='CH4', color='purple') #CH4
-    axs[1].axvline(x=0.75, ymin=0, ymax=1, label=r'CH$_4$', color='purple', linestyle='dashed')
-    #axs[0].text(0.75, 1.25e-13, 'CH4')
-    #axs[1].text(0.75, 1.41e-11, 'CH4')
-    #axs[1].vlines(x=[0.64], ymin=3.7e-11, ymax=4e-11, label='O2', color='black') #O2
-    axs[1].axvline(x=0.64, ymin=0, ymax=1, label=r'O$_2$', color='black', linestyle='dashed')
-    #axs[1].text(0.64, 2.5e-11, 'O2')
 
 
 
-    axs[1].plot(wave_new, int_earth(wave_new),color='black')
-    axs[1].scatter(earth_wave, earth_flux, s=5)
-    axs[1].set_ylim([0, 5e-11])
-    axs[1].set_ylabel(r'Flux (W/(m$^2 \AA$)')
-    axs[1].set_title('Earth spectrum')
-    #axs[1].legend()
 
 
-    
-    #axs[2].vlines(x=[0.6], ymin=7e-3, ymax=1e-2, label='H2O', color='green') #H2O
-    axs[2].axvline(x=0.6, ymin=0, ymax=1, label=r'H$_2$O', color='red', linestyle='dashed')
-    #axs[2].text(0.6, 2e-5, 'H2O' )
-    #axs[2].vlines(x=[0.42, 1.47, 1.5, 1.53], ymin=7e-3, ymax=1e-2, label='CO2', color='red') #CO2
-    #axs[2].axvline(x=0.42, ymin=0, ymax=1, label=r'CO$_2$', color='green', linestyle='dashed')
-    axs[2].axvline(x=1.47, ymin=0, ymax=1, label=r'CO$_2$', color='green', linestyle='dashed')
-    #axs[2].vlines(x=[0.96], ymin=7e-3, ymax=1e-2, label='O3', color='blue') #O3
-    axs[2].axvline(x=0.96, ymin=0, ymax=1, label=r'O$_3$', color='blue', linestyle='dashed')
-    #axs[1].text(0.96, 2.996e-6, 'O3')
-    #axs[2].vlines(x=[0.75], ymin=7e-3, ymax=1e-2, label='CH4', color='purple') #CH4
-    axs[2].axvline(x=0.75, ymin=0, ymax=1, label=r'CH$_4$', color='purple', linestyle='dashed')
-    axs[2].axvline(x=0.64, ymin=0, ymax=1, label=r'O$_2$', color='black', linestyle='dashed')
-
-    axs[2].scatter(wave_new, djs_dens_mars, s=10)
-    axs[2].set_ylim([1e-14, 0.3])
-    axs[2].set_yscale('log')
-    axs[2].set_xlabel(r'Wavelength ($\mu$ m)')
-    axs[2].set_ylabel(r'$\mathcal{D}_{JS}$(Earth|Mars)')
-    axs[2].set_title('Information difference between Earth and Mars spectra')
-
-
-    
-    #for ax in axs:
-    #    ax.set_xscale('log')
-    #    ax.set_yscale('log')
-    #    #ax.set_xlim([0.3,2.1])
-    #    #ax.set_ylim([1e-13, 1e-2])
-    #    ax.set_xlabel('wavenumber (1/um)')
-    #    ax.set_ylabel('Djs density')
-        
-        
-    #axs[2].set_title('Djs density Earth vs. Mars')
-
-    #plt.subplots_adjust(wspace=0, hspace=0)
-    
-    plt.tight_layout()
-    #plt.savefig('Djs_density_vs_lambda.png', format='png')
-    plt.show()
-
-#print JSD of interpolation function for Earth vs. interpolation function for Mars
-print('Djs of Earth vs. Mars is ', djs(int_earth(wave_new),int_mars(wave_new)))
-print('Djs of Earth vs. Jupiter is ', djs(int_earth(wave_new),int_jupiter(wave_new)))
-
-
-print('Djs density at H2O is ', find_nearest_Djs(wave_new, djs_dens_mars, 0.6)[1])
-#print('Djs density at first CO2 is ', find_nearest_Djs(wave_new, djs_dens_mars, 0.42)[1])
-print('Djs density at CO2 is ', find_nearest_Djs(wave_new, djs_dens_mars, 1.47)[1])
-print('Djs density at O3 is ', find_nearest_Djs(wave_new, djs_dens_mars, 0.96)[1])
-print('Djs density at CH4 is ', find_nearest_Djs(wave_new, djs_dens_mars, 0.75)[1])
-print('Djs density at O2 is ', find_nearest_Djs(wave_new, djs_dens_mars, 0.64)[1])
-
-
-Djs_min =  wave_new[(djs_dens_mars).argmin()]
-
-print('Wavelength at Djs minimum is ',Djs_min)
-print('The wavelengths near there are ', earth_wave[(np.abs(earth_wave-Djs_min)).argmin()], ' for Earth and ', mars_wave[(np.abs(mars_wave-Djs_min)).argmin()], ' for Mars.')
 
 
 
