@@ -130,48 +130,61 @@ def get_binned_interp(earth_wave, earth_flux, mars_wave, mars_flux, jupiter_wave
 
 	return interp_bins_earth, interp_bins_mars, interp_bins_jupiter
 
-def get_binned_Djs(earth_wave, earth_flux, mars_wave, mars_flux, jupiter_wave, jupiter_flux):
 
+def get_binned_interp(wave, flux, sagan=False):
 
+	#clean spectra ---- TURN ON FOR SAGAN INSTITUTE DATA or data with unphysical emission/absorption lines
+	if sagan:
+		wave, flux = clean(earth_wave, earth_flux)
 
 
 	#bins = {'H2O':[0.52, 0.72], 'CO2': [1.42, 1.58], 'O3': [0.94, 0.99], 'CH4':[0.73, 0.81], 'O2':[0.59, 0.70]}
 	bins = {'H2O':[0.5, 0.7], 'CO2': [1.4, 1.6], 'O3': [0.9, 1.0], 'CH4':[0.7, 0.8], 'O2':[0.6, 0.70]}
 
-	binned_Djs_mars = {'H2O': np.nan, 'CO2': np.nan, 'O3': np.nan, 'CH4':np.nan, 'O2':np.nan}
-	binned_Djs_jupiter = {'H2O': np.nan, 'CO2': np.nan, 'O3': np.nan, 'CH4':np.nan, 'O2':np.nan}
+	interp_bins =  {'H2O':[], 'CO2': [], 'O3': [], 'CH4':[], 'O2':[]}
+
+	for key in bins:
+		#truncate spectra
+		beg, end = bins[key]
+		wave_trunc, flux_trunc = truncate(beg, end, wave, flux)
+
+		#interpolate spectra (this returns an interpolation function that's a function of wavelength)
+		interp_bins[key] = interp1d(wave_trunc, flux_trunc, kind='nearest', fill_value="extrapolate")
 
 
-	interp_bins_earth, interp_bins_mars, interp_bins_jupiter = get_binned_interp(earth_wave, earth_flux, mars_wave, mars_flux, jupiter_wave, jupiter_flux)
+	return interp_bins
+
+
+
+def get_binned_Djs(earth_wave, earth_flux, exo_wave, exo_flux):
+
+
+	#bins = {'H2O':[0.52, 0.72], 'CO2': [1.42, 1.58], 'O3': [0.94, 0.99], 'CH4':[0.73, 0.81], 'O2':[0.59, 0.70]}
+	bins = {'H2O':[0.5, 0.7], 'CO2': [1.4, 1.6], 'O3': [0.9, 1.0], 'CH4':[0.7, 0.8], 'O2':[0.6, 0.70]}
+
+	binned_Djs = {'H2O': np.nan, 'CO2': np.nan, 'O3': np.nan, 'CH4':np.nan, 'O2':np.nan}
+
+
+	interp_bins_earth = get_binned_interp(earth_wave, earth_flux)
+	interp_bins_exo = get_binned_interp(exo_wave, exo_flux)
 
 
 	for key in bins:
 		##truncate spectra
 		beg, end = bins[key]
-		#earth_wave_trunc, earth_flux_trunc = truncate(beg, end, earth_wave, earth_flux)
-		#mars_wave_trunc, mars_flux_trunc = truncate(beg, end, mars_wave, mars_flux)
-		#jupiter_wave_trunc, jupiter_flux_trunc = truncate(beg, end, jupiter_wave, jupiter_flux)
-
-
-		##interpolate spectra (this returns an interpolation function that's a function of wavelength)
-		#int_earth = interp1d(earth_wave_trunc, earth_flux_trunc, kind='nearest', fill_value="extrapolate")
-		#int_mars = interp1d(mars_wave_trunc, mars_flux_trunc, kind='nearest', fill_value="extrapolate")
-		#int_jupiter = interp1d(jupiter_wave_trunc, jupiter_flux_trunc, kind='nearest', fill_value="extrapolate")
 
 
 		int_earth = interp_bins_earth[key]
-		int_mars = interp_bins_mars[key]
-		int_jupiter = interp_bins_jupiter[key]
+		int_exo = interp_bins_exo[key]
 
 		#new, uniform array of wavelengths to use for all spectra
 		wave_new = np.linspace(beg, end, num=50)
 
 
-		binned_Djs_mars[key] = djs(int_earth(wave_new),int_mars(wave_new))
-		binned_Djs_jupiter[key] = djs(int_earth(wave_new),int_jupiter(wave_new))
+		binned_Djs[key] = djs(int_earth(wave_new),int_exo(wave_new))
 	
 
-	return binned_Djs_mars, binned_Djs_jupiter
+	return binned_Djs
 
 
 ##where to truncate wavelength so all spectra have same number of bins
