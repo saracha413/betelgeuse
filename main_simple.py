@@ -1,13 +1,37 @@
 
 import numpy as np
 import scipy as sp
+import math
 from scipy.fft import fft
 from scipy.interpolate import interp1d
 import matplotlib
 import matplotlib.pyplot as plt
 from djs_spectra import *
 
+
+
+def get_entropy_bias(waves, flux):
+
+    nu = fft(waves)
+    #bias = math.log((math.e),2)*(np.amax(nu)-1)) / (2*sum(flux))
+    bias = math.log((math.e),2)*(np.amax(nu[1:])-np.amin(nu[1:])) / (2*sum(flux))
+
+    return bias
+
+
+
+
+#truncates wavelength and flux arrays from the beginning and ending wavelengths in a wavelength packet
+def get_bin_width(beg_wave, end_wave, wave_arr, flux_arr):
+
+    beg_idx, end_idx = (np.abs(wave_arr-beg_wave)).argmin(), (np.abs(wave_arr-end_wave)).argmin()
+    wave_arr, flux_arr = wave_arr[beg_idx:end_idx], flux_arr[beg_idx:end_idx]
+
+
+    return wave_arr, flux_arr
+
 if __name__ == '__main__':
+
 
 
     #-------------------------------------------------------------
@@ -18,8 +42,8 @@ if __name__ == '__main__':
 
     #what plot(s) do you want to make?
 
-    plt_plain_spectra = True #just plot plain spectra
-    plt_binned_interp = False #plot both spectra with interpolation in bins near biomarkers
+    plt_plain_spectra = False #just plot plain spectra
+    plt_binned = True #plot both spectra with interpolation in bins near biomarkers
 
 	#do you want to normalize the flux of all the spectra to the scale of the flux of Earth? (good for Djs calculations)
     normalize = True
@@ -77,28 +101,24 @@ if __name__ == '__main__':
 
 
 
-    if plt_binned_interp:
+    if plt_binned:
 
-        interp_bins_earth, interp_bins_exo = get_binned_interp(earth_wave, earth_flux), get_binned_interp(exo_wave, exo_flux)
+        #interp_bins_earth, interp_bins_exo = get_binned_interp(earth_wave, earth_flux), get_binned_interp(exo_wave, exo_flux)
         iso_colors = {'H2O':'red', 'CO2': 'green', 'O3': 'blue', 'CH4':'purple', 'O2':'gray'}
 
         fig, axs = plt.subplots(nrows=2, figsize=(5,7), sharex=True)
 
         axs[0].scatter(earth_wave, earth_flux, s=5)
         axs[0].set_title('Earth')
-        for key in interp_bins_earth:
+        for key in bins:
             beg, end = bins[key]
-            wave_new = np.linspace(beg, end, num=50)
-            axs[0].plot(wave_new, interp_bins_earth[key](wave_new), linestyle='dashed', color='black')
             axs[0].axvspan(beg, end, alpha=0.5, label=key, color=iso_colors[key])
 
 
         axs[1].scatter(exo_wave, exo_flux, s=5)
         axs[1].set_title('Exoplanet')
-        for key in interp_bins_exo:
+        for key in bins:
             beg, end = bins[key]
-            wave_new = np.linspace(beg, end, num=50)
-            axs[1].plot(wave_new, interp_bins_exo[key](wave_new), linestyle='dashed', color='black')
             axs[1].axvspan(beg, end, alpha=0.5, label=key, color=iso_colors[key])
 
         for ax in axs:
