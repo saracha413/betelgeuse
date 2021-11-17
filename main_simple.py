@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
     ###change these to the location of your Earth and exoplanet spectra files
     earth_infile = '/Users/saravannah/AstroSpec/Exo_Transmit_spectra/earth.txt'
-    exo_infile = '/Users/saravannah/AstroSpec/Exo_Transmit_spectra/HAT-P-1b_spectrum.txt'
+    exo_infile = '/Users/saravannah/AstroSpec/Exo_Transmit_spectra/Jupiter_spectrum.txt'
 
 
 
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     #-------------------------------------------------------------
     #W/m^2*Ansgstrom, microns
     earth_wave, earth_flux = np.loadtxt(earth_infile, unpack=True, skiprows=2)
-    exo_wave, exo_flux = np.loadtxt(exo_infile, unpack=True, skiprows=2)
+    exo_wave, exo_flux = np.loadtxt(exo_infile, unpack=True) #np.loadtxt(exo_infile, unpack=True, skiprows=2)
 
     ###for exo-transmit only!! convert wavelength from m to um 
     earth_wave = earth_wave * 1e6
@@ -72,10 +72,11 @@ if __name__ == '__main__':
         exo_flux = exo_flux*np.mean(earth_flux/exo_flux)
 
     #wavelength bins for biomarkers from HITRAN
-    bins = {'H2O':[0.5, 0.7], 'CO2': [1.4, 1.6], 'O3': [0.9, 1.0], 'CH4':[0.7, 0.8], 'O2':[0.6, 0.70]}
+    bins = {'H2O':[0.5, 0.7], 'CO2': [1.4, 1.6], 'CO2_high': [1.4,1.6], 'O3': [0.9, 1.0], 'CH4':[0.7, 0.8], 'O2':[0.6, 0.70], 'O2_high':[4.38, 4.85]}
 
-    binned_Djs = get_binned_Djs(earth_wave, earth_flux, exo_wave, exo_flux)
-    print('Djs near H20 is ', binned_Djs['H2O'], ', near CO2 is ', binned_Djs['CO2'], ', near O3 is ', binned_Djs['O3'], ', near CH4 is ', binned_Djs['CH4'], ', near O2 is ', binned_Djs['O2'])
+    binned_Djs = get_binned_Djs(earth_wave, earth_flux, exo_wave, exo_flux, bins)
+    print('Djs near H20 is ', binned_Djs['H2O'], ', near CO2 is ', binned_Djs['CO2'], ', near O3 is ', binned_Djs['O3'], ', near CH4 is ', binned_Djs['CH4'], ', near O2 is ', binned_Djs['O2'], ' near the high wavelength CO2 transition is ', binned_Djs['CO2_high'], ' near the high wavelength O2 transition is ', binned_Djs[
+        'O2_high'])
 
 
 
@@ -104,7 +105,7 @@ if __name__ == '__main__':
     if plt_binned:
 
         #interp_bins_earth, interp_bins_exo = get_binned_interp(earth_wave, earth_flux), get_binned_interp(exo_wave, exo_flux)
-        iso_colors = {'H2O':'red', 'CO2': 'green', 'O3': 'blue', 'CH4':'purple', 'O2':'gray'}
+        iso_colors = {'H2O':'red', 'CO2': 'green', 'CO2_high': 'green', 'O3': 'blue', 'CH4':'purple', 'O2':'gray', 'O2_high': 'gray'}
 
         fig, axs = plt.subplots(nrows=2, figsize=(5,7), sharex=True)
 
@@ -123,8 +124,8 @@ if __name__ == '__main__':
 
         for ax in axs:
             #ax.set_ylim([-1e-11, 6e-11])
-            #ax.set_xscale('log')
-            ax.set_xlim([0.1,2])
+            ax.set_xscale('log')
+            ax.set_xlim([0.3,10])
             ax.legend(loc='upper left')
             ax.set_ylabel('Transit depth (percent)')
 
