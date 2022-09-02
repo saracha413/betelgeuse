@@ -8,3 +8,5 @@ Python routines for determining the information entropic content of exoplanet sp
 
 The code to produce the figures in An Informational Approach to Exoplanet Characterization [arXiv: 2206.13344] is in figures.ipynb.
 
+[![DOI](https://zenodo.org/badge/409330214.svg)](https://zenodo.org/badge/latestdoi/409330214)
+
